@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: google('gemini-2.5-flash'),
     system:
-      'You are Dive In, a thoughtful and concise cloud intelligence. ' +
+      "You are Hirani's AI Engine, a thoughtful and concise cloud intelligence. " +
       'Help the user explore ideas clearly and helpfully.',
     messages: await convertToModelMessages(messages),
   });

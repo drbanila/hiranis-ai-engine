@@ -2,9 +2,16 @@
 
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import WelcomeSection from './WelcomeSection';
 import DiveInLogo from './DiveInLogo';
+import {
+  loadSessions,
+  saveSessions,
+  deriveTitle,
+  newId,
+  type ChatSession,
+} from './lib/sessions';
 import {
   Plus,
   MessageSquare,
@@ -17,6 +24,7 @@ import {
   Paperclip,
   Focus,
   Search,
+  Trash2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -37,11 +45,48 @@ export default function Page() {
     () => new DefaultChatTransport({ api: API_ENDPOINT }),
     [],
   );
-  const { messages, sendMessage, status } = useChat({ transport });
+  const { messages, sendMessage, status, setMessages } = useChat({ transport });
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // --- Session persistence (localStorage) ---------------------------------
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
   const isBusy = status === 'submitted' || status === 'streaming';
+
+  // Hydrate from localStorage on mount; restore the most recent conversation.
+  useEffect(() => {
+    const loaded = loadSessions();
+    setSessions(loaded);
+    if (loaded.length > 0) {
+      const recent = [...loaded].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      setActiveId(recent.id);
+      setMessages(recent.messages);
+    }
+    setHydrated(true);
+  }, [setMessages]);
+
+  // Persist the active conversation whenever it changes.
+  useEffect(() => {
+    if (!hydrated || messages.length === 0) return;
+    const id = activeId ?? newId();
+    if (!activeId) setActiveId(id);
+    const session: ChatSession = {
+      id,
+      title: deriveTitle(messages),
+      updatedAt: Date.now(),
+      messages,
+    };
+    setSessions((prev) => {
+      const next = prev.some((s) => s.id === id)
+        ? prev.map((s) => (s.id === id ? session : s))
+        : [session, ...prev];
+      saveSessions(next);
+      return next;
+    });
+  }, [messages, hydrated, activeId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -50,6 +95,39 @@ export default function Page() {
     });
   }, [messages]);
 
+  const handleNewChat = useCallback(() => {
+    setActiveId(null);
+    setMessages([]);
+    setInput('');
+  }, [setMessages]);
+
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      if (isBusy) return;
+      const session = sessions.find((s) => s.id === id);
+      if (!session) return;
+      setActiveId(id);
+      setMessages(session.messages);
+    },
+    [sessions, setMessages, isBusy],
+  );
+
+  const handleDeleteSession = useCallback(
+    (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSessions((prev) => {
+        const next = prev.filter((s) => s.id !== id);
+        saveSessions(next);
+        return next;
+      });
+      if (activeId === id) {
+        setActiveId(null);
+        setMessages([]);
+      }
+    },
+    [activeId, setMessages],
+  );
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
@@ -57,6 +135,11 @@ export default function Page() {
     sendMessage({ text });
     setInput('');
   }
+
+  const sortedSessions = useMemo(
+    () => [...sessions].sort((a, b) => b.updatedAt - a.updatedAt),
+    [sessions],
+  );
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-white font-sans text-zinc-900 antialiased selection:bg-zinc-200">
@@ -73,7 +156,10 @@ export default function Page() {
           </div>
 
           <div className="px-3">
-            <button className="group flex w-full items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition-all duration-200 hover:bg-zinc-100 hover:text-zinc-900">
+            <button
+              onClick={handleNewChat}
+              className="group flex w-full items-center gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition-all duration-200 hover:bg-zinc-100 hover:text-zinc-900"
+            >
               <Plus className="h-4 w-4 transition-transform duration-200 group-hover:rotate-90" />
               New chat
             </button>
@@ -83,18 +169,39 @@ export default function Page() {
             <p className="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               History
             </p>
-            <ul className="space-y-0.5">
-              {['Welcome conversation', 'Project brainstorm', 'Weekly planning'].map(
-                (label) => (
-                  <li key={label}>
-                    <button className="flex w-full items-center gap-2.5 truncate rounded-lg px-2.5 py-2 text-left text-sm text-zinc-600 transition-all duration-200 hover:bg-zinc-100 hover:text-zinc-900">
-                      <MessageSquare className="h-4 w-4 shrink-0 opacity-60" />
-                      <span className="truncate tracking-tight">{label}</span>
-                    </button>
-                  </li>
-                ),
-              )}
-            </ul>
+            {sortedSessions.length === 0 ? (
+              <p className="px-2 py-2 text-sm text-zinc-400">
+                {hydrated ? 'No conversations yet.' : ''}
+              </p>
+            ) : (
+              <ul className="space-y-0.5">
+                {sortedSessions.map((s) => {
+                  const isActive = s.id === activeId;
+                  return (
+                    <li key={s.id}>
+                      <div
+                        onClick={() => handleSelectSession(s.id)}
+                        className={`group flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 ${
+                          isActive
+                            ? 'bg-zinc-200/70 text-zinc-900'
+                            : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                        }`}
+                      >
+                        <MessageSquare className="h-4 w-4 shrink-0 opacity-60" />
+                        <span className="flex-1 truncate tracking-tight">{s.title}</span>
+                        <button
+                          onClick={(e) => handleDeleteSession(s.id, e)}
+                          className="shrink-0 rounded p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                          aria-label="Delete conversation"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
           <div className="border-t border-zinc-200 p-3">
