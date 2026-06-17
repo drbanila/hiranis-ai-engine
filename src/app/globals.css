@@ -1,14 +1,17 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
-  /* ChatGPT-style light canvas */
-  --background: #ffffff;
-  --foreground: #0d0d0d;
-  /* Muted micro-label tone */
-  --muted-foreground: #6e6e80;
-  /* Sidebar / surface tint + hairline borders */
-  --surface: #f9f9f9;
-  --border: #e5e5e5;
+  /* Warm ivory canvas — calm, premium, off-white */
+  --background: #fafaf8;
+  --foreground: #1a1a1a;
+  --muted-foreground: #6b6b6b;
+  /* Sidebar / surface — slightly warmer than background */
+  --surface: #f2f0eb;
+  --border: #e3e0d9;
+  /* Accent — deep navy */
+  --accent: #1c3557;
+  --accent-light: #eef0f7;
 }
 
 @theme inline {
@@ -17,6 +20,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -24,55 +29,25 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Inter, system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
 }
 
-/* Welcome section entrance. */
+/* Welcome section entrance */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Dive In ripple emblem — rings emanate outward while the assistant works. */
-.dl-ripple {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: dl-ripple 1.8s ease-out infinite;
+/* Subtle logo breathing while assistant generates */
+.hae-pulse {
+  animation: hae-pulse 2.4s ease-in-out infinite;
 }
-@keyframes dl-ripple {
-  0% {
-    transform: scale(0.5);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(2.6);
-    opacity: 0;
-  }
-}
-.dl-core {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: dl-core 1.8s ease-in-out infinite;
-}
-@keyframes dl-core {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.12);
-  }
+@keyframes hae-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dl-ripple,
-  .dl-core {
-    animation: none;
-  }
+  .hae-pulse { animation: none; }
 }
