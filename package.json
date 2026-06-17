@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.82",
+    "@ai-sdk/openai": "^3.0.0",
     "@ai-sdk/react": "^3.0.208",
     "@tailwindcss/typography": "^0.5.20",
     "ai": "^6.0.206",
