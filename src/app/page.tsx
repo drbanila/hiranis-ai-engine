@@ -25,13 +25,34 @@ import {
   User,
   Shield,
   ChevronRight,
+  ChevronDown,
+  Check,
   MoreHorizontal,
   Paperclip,
   Mic,
   type LucideIcon,
 } from 'lucide-react';
 
-const API_ENDPOINT = '/api/chat';
+// --- Model selector ----------------------------------------------------------
+
+const MODEL_STORAGE_KEY = 'hae_model';
+
+interface ModelOption {
+  id: string;
+  label: string;
+  badge: string;
+}
+
+const MODEL_OPTIONS: ModelOption[] = [
+  { id: 'auto',         label: 'Auto',         badge: 'Smart routing' },
+  { id: 'gemini-lite',  label: 'Gemini Lite',  badge: 'Fast & free'   },
+  { id: 'gemini-flash', label: 'Gemini Flash', badge: 'Balanced'      },
+  { id: 'qwen',         label: 'Qwen',         badge: 'OpenRouter'    },
+  { id: 'llama',        label: 'Llama',        badge: 'OpenRouter'    },
+  { id: 'gemma',        label: 'Gemma',        badge: 'OpenRouter'    },
+];
+
+const BASE_ENDPOINT = '/api/chat';
 
 type Suggestion = {
   label: string;
@@ -80,9 +101,32 @@ export default function Page() {
       setSidebarOpen(false);
     }
   }, []);
+  // Model selector state — persisted to localStorage, hydrated after mount.
+  const [selectedModel, setSelectedModelRaw] = useState('auto');
+  const [modelDropOpen, setModelDropOpen] = useState(false);
+  const modelDropRef = useRef<HTMLDivElement>(null);
+
+  function setSelectedModel(id: string) {
+    setSelectedModelRaw(id);
+    try { localStorage.setItem(MODEL_STORAGE_KEY, id); } catch {}
+    setModelDropOpen(false);
+  }
+
+  // Close dropdown on outside click.
+  useEffect(() => {
+    if (!modelDropOpen) return;
+    function handler(e: MouseEvent) {
+      if (modelDropRef.current && !modelDropRef.current.contains(e.target as Node)) {
+        setModelDropOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [modelDropOpen]);
+
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: API_ENDPOINT }),
-    [],
+    () => new DefaultChatTransport({ api: `${BASE_ENDPOINT}?model=${selectedModel}` }),
+    [selectedModel],
   );
   const { messages, sendMessage, status, setMessages, error } = useChat({ transport });
   const [input, setInput] = useState('');
@@ -118,6 +162,10 @@ export default function Page() {
       setActiveId(recent.id);
       setMessages(recent.messages);
     }
+    try {
+      const saved = localStorage.getItem(MODEL_STORAGE_KEY);
+      if (saved && MODEL_OPTIONS.some((m) => m.id === saved)) setSelectedModelRaw(saved);
+    } catch {}
     setHydrated(true);
   }, [setMessages]);
 
@@ -342,6 +390,46 @@ export default function Page() {
             <span className="text-[11.5px] font-medium tracking-tight text-[#2d8a5e]">
               Core Intelligence Active
             </span>
+          </div>
+
+          {/* Model selector dropdown */}
+          <div className="relative ml-1" ref={modelDropRef}>
+            <button
+              onClick={() => setModelDropOpen((o) => !o)}
+              className="flex items-center gap-1.5 rounded-full border border-[#e4e4e1] bg-white px-3 py-[4px] text-[11.5px] font-medium text-[#5c5f6b] transition-colors hover:border-[#c4c5cc] hover:text-[#1a1f2e]"
+              aria-label="Select model"
+            >
+              <span className="hidden text-[10px] text-[#9a9ba5] sm:inline">Model:</span>
+              <span>{MODEL_OPTIONS.find((m) => m.id === selectedModel)?.label ?? 'Auto'}</span>
+              <ChevronDown className="h-3 w-3 opacity-50" />
+            </button>
+
+            {modelDropOpen && (
+              <div className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-[#e4e4e1] bg-white py-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.10)]">
+                <p className="px-3 pb-1 pt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#b6b7bf]">
+                  Intelligence Model
+                </p>
+                {MODEL_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setSelectedModel(opt.id)}
+                    className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[#f7f7f5] ${
+                      selectedModel === opt.id
+                        ? 'text-[#2a2f6b]'
+                        : 'text-[#5c5f6b]'
+                    }`}
+                  >
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                      {selectedModel === opt.id && (
+                        <Check className="h-3.5 w-3.5 text-[#2a2f6b]" />
+                      )}
+                    </span>
+                    <span className="flex-1 text-[13px] font-medium">{opt.label}</span>
+                    <span className="text-[10.5px] text-[#b6b7bf]">{opt.badge}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="ml-auto flex items-center gap-1.5">
