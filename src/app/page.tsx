@@ -31,6 +31,8 @@ import {
   Paperclip,
   Mic,
   MicOff,
+  X,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -169,6 +171,42 @@ export default function Page() {
     rec.start();
   }
 
+  // File attachments
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [filePreviews, setFilePreviews] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(
+    () => () => { filePreviews.forEach((u) => { if (u) URL.revokeObjectURL(u); }); },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []).slice(0, 5 - attachedFiles.length);
+    e.target.value = '';
+    if (!picked.length) return;
+    const oversized = picked.filter((f) => f.size > 4 * 1024 * 1024);
+    if (oversized.length) { alert(`File too large (max 4 MB): ${oversized.map((f) => f.name).join(', ')}`); return; }
+    setAttachedFiles((prev) => [...prev, ...picked]);
+    setFilePreviews((prev) => [
+      ...prev,
+      ...picked.map((f) => (f.type.startsWith('image/') ? URL.createObjectURL(f) : '')),
+    ]);
+  }
+
+  function removeAttachment(i: number) {
+    if (filePreviews[i]) URL.revokeObjectURL(filePreviews[i]);
+    setAttachedFiles((prev) => prev.filter((_, j) => j !== i));
+    setFilePreviews((prev) => prev.filter((_, j) => j !== i));
+  }
+
+  function fmtBytes(b: number) {
+    if (b < 1024) return `${b} B`;
+    if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+    return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
   // Live "thinking" seconds counter — runs while the assistant is working.
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -270,9 +308,18 @@ export default function Page() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isBusy) return;
-    sendMessage({ text });
+    if ((!text && attachedFiles.length === 0) || isBusy) return;
+    let fileList: FileList | undefined;
+    if (attachedFiles.length > 0) {
+      const dt = new DataTransfer();
+      attachedFiles.forEach((f) => dt.items.add(f));
+      fileList = dt.files;
+    }
+    sendMessage({ text, files: fileList });
     setInput('');
+    filePreviews.forEach((u) => { if (u) URL.revokeObjectURL(u); });
+    setAttachedFiles([]);
+    setFilePreviews([]);
   }
 
   const sortedSessions = useMemo(
@@ -590,51 +637,95 @@ export default function Page() {
 
         {/* Input bar */}
         <div className="pointer-events-none sticky bottom-0 bg-gradient-to-t from-[#fbfbfa] via-[#fbfbfa]/90 to-transparent px-4 pb-5 pt-4">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,.pdf,.txt,.md,.csv,.json"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+
           <form
             onSubmit={handleSubmit}
-            className="pointer-events-auto mx-auto flex w-full max-w-2xl items-center gap-2 rounded-2xl border border-[#e4e4e1] bg-white px-3 py-2 shadow-[0_2px_14px_rgba(0,0,0,0.06)] transition-all duration-200 focus-within:border-[#6d5ce0]/40 focus-within:shadow-[0_4px_22px_rgba(109,92,224,0.12)]"
+            className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col rounded-2xl border border-[#e4e4e1] bg-white px-3 py-2 shadow-[0_2px_14px_rgba(0,0,0,0.06)] transition-all duration-200 focus-within:border-[#6d5ce0]/40 focus-within:shadow-[0_4px_22px_rgba(109,92,224,0.12)]"
           >
-            <button
-              type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#a4a5ae] transition-colors hover:bg-[#f3f3f1] hover:text-[#6b6f7d]"
-              aria-label="Attach"
-            >
-              <Paperclip className="h-[18px] w-[18px]" />
-            </button>
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey)
-                  handleSubmit(e as unknown as React.FormEvent);
-              }}
-              placeholder="Ask Hirani AI Engine anything..."
-              className="flex-1 bg-transparent px-1 py-1.5 text-[14px] text-[#1a1f2e] placeholder:text-[#b6b7bf] focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={handleVoice}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                isListening
-                  ? 'bg-red-50 text-red-500 hover:bg-red-100'
-                  : 'text-[#a4a5ae] hover:bg-[#f3f3f1] hover:text-[#6b6f7d]'
-              }`}
-              aria-label={isListening ? 'Stop recording' : 'Voice input'}
-            >
-              {isListening ? (
-                <MicOff className="h-[18px] w-[18px] animate-pulse" />
-              ) : (
-                <Mic className="h-[18px] w-[18px]" />
-              )}
-            </button>
-            <button
-              type="submit"
-              disabled={!input.trim() || isBusy}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2a2f6b] text-white transition-all duration-150 enabled:hover:bg-[#232757] enabled:hover:shadow-[0_2px_10px_rgba(42,47,107,0.32)] disabled:cursor-not-allowed disabled:bg-[#e4e4e1] disabled:text-[#b6b7bf]"
-              aria-label="Send"
-            >
-              <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
-            </button>
+            {/* File preview strip */}
+            {attachedFiles.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2 border-b border-[#f0f0ee] pb-2 pt-0.5">
+                {attachedFiles.map((file, i) => (
+                  <div key={i} className="relative flex items-center gap-2 rounded-xl border border-[#e4e4e1] bg-[#f7f7f5] p-1.5 pr-2">
+                    {filePreviews[i] ? (
+                      <img src={filePreviews[i]} alt={file.name} className="h-10 w-10 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#efeefb]">
+                        <FileText className="h-4 w-4 text-[#6d5ce0]" />
+                      </div>
+                    )}
+                    <div className="max-w-[90px]">
+                      <p className="truncate text-[11px] font-medium text-[#1a1f2e]">{file.name}</p>
+                      <p className="text-[10px] text-[#9a9ba5]">{fmtBytes(file.size)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(i)}
+                      className="ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#e4e4e1] text-[#6b6f7d] hover:bg-[#d0d0cc]"
+                      aria-label="Remove file"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Input row */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={attachedFiles.length >= 5}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#a4a5ae] transition-colors hover:bg-[#f3f3f1] hover:text-[#6b6f7d] disabled:opacity-40"
+                aria-label="Attach file"
+              >
+                <Paperclip className="h-[18px] w-[18px]" />
+              </button>
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey)
+                    handleSubmit(e as unknown as React.FormEvent);
+                }}
+                placeholder="Ask Hirani AI Engine anything..."
+                className="flex-1 bg-transparent px-1 py-1.5 text-[14px] text-[#1a1f2e] placeholder:text-[#b6b7bf] focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={handleVoice}
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                  isListening
+                    ? 'bg-red-50 text-red-500 hover:bg-red-100'
+                    : 'text-[#a4a5ae] hover:bg-[#f3f3f1] hover:text-[#6b6f7d]'
+                }`}
+                aria-label={isListening ? 'Stop recording' : 'Voice input'}
+              >
+                {isListening ? (
+                  <MicOff className="h-[18px] w-[18px] animate-pulse" />
+                ) : (
+                  <Mic className="h-[18px] w-[18px]" />
+                )}
+              </button>
+              <button
+                type="submit"
+                disabled={(!input.trim() && attachedFiles.length === 0) || isBusy}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#2a2f6b] text-white transition-all duration-150 enabled:hover:bg-[#232757] enabled:hover:shadow-[0_2px_10px_rgba(42,47,107,0.32)] disabled:cursor-not-allowed disabled:bg-[#e4e4e1] disabled:text-[#b6b7bf]"
+                aria-label="Send"
+              >
+                <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              </button>
+            </div>
           </form>
           <p className="pointer-events-none mt-2 text-center text-[11px] text-[#b6b7bf]">
             Hirani AI Engine can make mistakes. Verify important information.
