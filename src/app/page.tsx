@@ -30,6 +30,7 @@ import {
   MoreHorizontal,
   Paperclip,
   Mic,
+  MicOff,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -137,6 +138,36 @@ export default function Page() {
   const [hydrated, setHydrated] = useState(false);
 
   const isBusy = status === 'submitted' || status === 'streaming';
+
+  // Voice input via Web Speech API
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  function handleVoice() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SR =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    rec.onstart = () => setIsListening(true);
+    rec.onend = () => setIsListening(false);
+    rec.onerror = () => setIsListening(false);
+    rec.onresult = (e: any) => {
+      const transcript = Array.from(e.results as any[])
+        .map((r: any) => r[0].transcript)
+        .join('');
+      setInput(transcript);
+    };
+    recognitionRef.current = rec;
+    rec.start();
+  }
 
   // Live "thinking" seconds counter — runs while the assistant is working.
   const [elapsed, setElapsed] = useState(0);
@@ -582,10 +613,19 @@ export default function Page() {
             />
             <button
               type="button"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#a4a5ae] transition-colors hover:bg-[#f3f3f1] hover:text-[#6b6f7d]"
-              aria-label="Voice"
+              onClick={handleVoice}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                isListening
+                  ? 'bg-red-50 text-red-500 hover:bg-red-100'
+                  : 'text-[#a4a5ae] hover:bg-[#f3f3f1] hover:text-[#6b6f7d]'
+              }`}
+              aria-label={isListening ? 'Stop recording' : 'Voice input'}
             >
-              <Mic className="h-[18px] w-[18px]" />
+              {isListening ? (
+                <MicOff className="h-[18px] w-[18px] animate-pulse" />
+              ) : (
+                <Mic className="h-[18px] w-[18px]" />
+              )}
             </button>
             <button
               type="submit"
