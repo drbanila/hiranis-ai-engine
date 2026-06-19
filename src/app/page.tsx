@@ -141,34 +141,106 @@ export default function Page() {
 
   const isBusy = status === 'submitted' || status === 'streaming';
 
-  // Voice input via Web Speech API
+  // Voice input via Web Speech API (Chrome/Edge + Safari via webkit prefix)
   const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(true);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
+  const voiceBaseRef = useRef('');
 
-  function handleVoice() {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      return;
-    }
+  // Detect support after mount (avoids SSR window access).
+  useEffect(() => {
     const SR =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
-    if (!SR) return;
+    setVoiceSupported(!!SR);
+  }, []);
+
+  // Auto-dismiss any voice error after a few seconds.
+  useEffect(() => {
+    if (!voiceError) return;
+    const t = setTimeout(() => setVoiceError(null), 4000);
+    return () => clearTimeout(t);
+  }, [voiceError]);
+
+  function handleVoice() {
+    // Already listening → stop and tear down.
+    if (isListening) {
+      try { recognitionRef.current?.stop(); } catch {}
+      return;
+    }
+
+    const SR =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      setVoiceSupported(false);
+      setVoiceError('Voice input is not supported in this browser. Try Chrome, Edge, or Safari 14.1+.');
+      return;
+    }
+
+    // Safari can throw if a previous instance is still active — clean up first.
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+
     const rec = new SR();
     rec.continuous = false;
     rec.interimResults = true;
+    rec.maxAlternatives = 1;
     rec.lang = 'en-US';
-    rec.onstart = () => setIsListening(true);
-    rec.onend = () => setIsListening(false);
-    rec.onerror = () => setIsListening(false);
-    rec.onresult = (e: any) => {
-      const transcript = Array.from(e.results as any[])
-        .map((r: any) => r[0].transcript)
-        .join('');
-      setInput(transcript);
+
+    // Preserve any text the user already typed; append speech to it.
+    voiceBaseRef.current = input ? input.replace(/\s*$/, '') + ' ' : '';
+
+    rec.onstart = () => {
+      setVoiceError(null);
+      setIsListening(true);
     };
+
+    rec.onresult = (e: any) => {
+      let transcript = '';
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      setInput(voiceBaseRef.current + transcript);
+    };
+
+    rec.onerror = (e: any) => {
+      setIsListening(false);
+      switch (e?.error) {
+        case 'not-allowed':
+        case 'service-not-allowed':
+          setVoiceError('Microphone access was blocked. Allow it in Safari → Settings → Websites → Microphone.');
+          break;
+        case 'no-speech':
+          setVoiceError("Didn't catch that — please try speaking again.");
+          break;
+        case 'audio-capture':
+          setVoiceError('No microphone found. Check your device and try again.');
+          break;
+        case 'aborted':
+          // User-initiated stop; no message needed.
+          break;
+        default:
+          setVoiceError('Voice input failed. Please try again.');
+      }
+    };
+
+    rec.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+
     recognitionRef.current = rec;
-    rec.start();
+    try {
+      rec.start();
+    } catch {
+      // Safari throws InvalidStateError if start() races a prior session.
+      setIsListening(false);
+      setVoiceError('Voice input is busy — please tap the mic again.');
+    }
   }
 
   // File attachments
@@ -647,6 +719,31 @@ export default function Page() {
             onChange={handleFileSelect}
           />
 
+          {/* Voice status / error toast */}
+          {(voiceError || isListening) && (
+            <div className="pointer-events-none mx-auto mb-2 flex w-full max-w-2xl justify-center">
+              <div
+                className={`pointer-events-auto flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-medium shadow-sm ${
+                  voiceError
+                    ? 'border-[#f2d4d1] bg-[#fdf3f2] text-[#9b2c22]'
+                    : 'border-[#f5d0d0] bg-[#fdf0f0] text-red-500'
+                }`}
+              >
+                {voiceError ? (
+                  <span>{voiceError}</span>
+                ) : (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-70" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                    </span>
+                    <span>Listening… speak now</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <form
             onSubmit={handleSubmit}
             className="pointer-events-auto mx-auto flex w-full max-w-2xl flex-col rounded-2xl border border-[#e4e4e1] bg-white px-3 py-2 shadow-[0_2px_14px_rgba(0,0,0,0.06)] transition-all duration-200 focus-within:border-[#6d5ce0]/40 focus-within:shadow-[0_4px_22px_rgba(109,92,224,0.12)]"
@@ -704,7 +801,15 @@ export default function Page() {
               <button
                 type="button"
                 onClick={handleVoice}
-                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                disabled={!voiceSupported}
+                title={
+                  voiceSupported
+                    ? isListening
+                      ? 'Stop recording'
+                      : 'Voice input'
+                    : 'Voice input not supported in this browser'
+                }
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   isListening
                     ? 'bg-red-50 text-red-500 hover:bg-red-100'
                     : 'text-[#a4a5ae] hover:bg-[#f3f3f1] hover:text-[#6b6f7d]'
