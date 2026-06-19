@@ -73,7 +73,7 @@ const AUTO_PRIORITY = ['gemini-lite', 'gemini-flash', 'qwen', 'llama', 'gemma'];
 
 // --- Rate limit --------------------------------------------------------------
 
-const RATE_LIMIT_WINDOW_MS = 10_000;
+const RATE_LIMIT_WINDOW_MS = 3_000;
 const lastRequestByClient = new Map<string, number>();
 
 function getClientId(req: Request): string {
