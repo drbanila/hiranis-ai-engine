@@ -36,9 +36,21 @@ const openrouter = process.env.OPENROUTER_API_KEY
     })
   : null;
 
+// Groq — OpenAI-compatible API. Key is read server-side only.
+const groq = process.env.GROQ_API_KEY
+  ? createOpenAI({
+      baseURL: 'https://api.groq.com/openai/v1',
+      apiKey: process.env.GROQ_API_KEY,
+    })
+  : null;
+
 // --- Model registry ----------------------------------------------------------
 
-type ModelFactory = () => ReturnType<typeof google> | ReturnType<NonNullable<typeof openrouter>> | null;
+type ModelFactory = () =>
+  | ReturnType<typeof google>
+  | ReturnType<NonNullable<typeof openrouter>>
+  | ReturnType<NonNullable<typeof groq>>
+  | null;
 
 interface ModelEntry {
   label: string;
@@ -66,10 +78,20 @@ const MODEL_REGISTRY: Record<string, ModelEntry> = {
     label: 'Gemma',
     create: () => (openrouter ? openrouter('google/gemma-4-31b-it:free') : null),
   },
+  'groq-fast': {
+    label: 'Groq Fast',
+    create: () => (groq ? groq('llama-3.1-8b-instant') : null),
+  },
+  'groq-quality': {
+    label: 'Groq Quality',
+    create: () => (groq ? groq('llama-3.3-70b-versatile') : null),
+  },
 };
 
 // Auto mode tries models in this priority order until one succeeds.
-const AUTO_PRIORITY = ['gemini-lite', 'gemini-flash', 'qwen', 'llama', 'gemma'];
+// Free-first: Gemini → OpenRouter (Qwen) → Groq Fast → remaining OpenRouter.
+// Groq Quality is intentionally excluded — manual selection only.
+const AUTO_PRIORITY = ['gemini-lite', 'gemini-flash', 'qwen', 'groq-fast', 'llama', 'gemma'];
 
 // --- Rate limit --------------------------------------------------------------
 

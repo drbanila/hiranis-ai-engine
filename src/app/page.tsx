@@ -47,12 +47,14 @@ interface ModelOption {
 }
 
 const MODEL_OPTIONS: ModelOption[] = [
-  { id: 'auto',         label: 'Auto',         badge: 'Smart routing' },
-  { id: 'gemini-lite',  label: 'Gemini Lite',  badge: 'Fast & free'   },
-  { id: 'gemini-flash', label: 'Gemini Flash', badge: 'Balanced'      },
-  { id: 'qwen',         label: 'Qwen',         badge: 'OpenRouter'    },
-  { id: 'llama',        label: 'Llama',        badge: 'OpenRouter'    },
-  { id: 'gemma',        label: 'Gemma',        badge: 'OpenRouter'    },
+  { id: 'auto',          label: 'Auto',          badge: 'Smart routing' },
+  { id: 'gemini-lite',   label: 'Gemini Lite',   badge: 'Fast & free'   },
+  { id: 'gemini-flash',  label: 'Gemini Flash',  badge: 'Balanced'      },
+  { id: 'qwen',          label: 'Qwen',          badge: 'OpenRouter'    },
+  { id: 'llama',         label: 'Llama',         badge: 'OpenRouter'    },
+  { id: 'gemma',         label: 'Gemma',         badge: 'OpenRouter'    },
+  { id: 'groq-fast',     label: 'Groq Fast',     badge: 'Fast Groq'     },
+  { id: 'groq-quality',  label: 'Groq Quality',  badge: 'Better Groq'   },
 ];
 
 const BASE_ENDPOINT = '/api/chat';
