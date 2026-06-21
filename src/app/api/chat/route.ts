@@ -54,44 +54,65 @@ type ModelFactory = () =>
 
 interface ModelEntry {
   label: string;
+  provider: 'google' | 'groq' | 'openrouter';
   create: ModelFactory;
 }
 
 const MODEL_REGISTRY: Record<string, ModelEntry> = {
   'gemini-lite': {
     label: 'Gemini Lite',
+    provider: 'google',
     create: () => google('gemini-2.5-flash-lite'),
   },
   'gemini-flash': {
     label: 'Gemini Flash',
+    provider: 'google',
     create: () => google('gemini-2.5-flash'),
   },
   qwen: {
     label: 'Qwen',
+    provider: 'openrouter',
     create: () => (openrouter ? openrouter('qwen/qwen-2.5-72b-instruct') : null),
   },
   llama: {
     label: 'Llama',
+    provider: 'openrouter',
     create: () => (openrouter ? openrouter('meta-llama/llama-3.3-70b-instruct:free') : null),
   },
   gemma: {
     label: 'Gemma',
+    provider: 'openrouter',
     create: () => (openrouter ? openrouter('google/gemma-4-31b-it:free') : null),
   },
   'groq-fast': {
     label: 'Groq Fast',
+    provider: 'groq',
     create: () => (groq ? groq('llama-3.1-8b-instant') : null),
   },
   'groq-quality': {
     label: 'Groq Quality',
+    provider: 'groq',
     create: () => (groq ? groq('llama-3.3-70b-versatile') : null),
+  },
+  'qwen-groq': {
+    label: 'Qwen - Groq',
+    provider: 'groq',
+    create: () => (groq ? groq('qwen/qwen3-32b') : null),
   },
 };
 
 // Auto mode tries models in this priority order until one succeeds.
-// Free-first: Gemini → OpenRouter (Qwen) → Groq Fast → remaining OpenRouter.
-// Groq Quality is intentionally excluded — manual selection only.
-const AUTO_PRIORITY = ['gemini-lite', 'gemini-flash', 'qwen', 'groq-fast', 'llama', 'gemma'];
+// Free-first: Gemini → Groq Fast → Qwen-Groq → Groq Quality → OpenRouter.
+const AUTO_PRIORITY = [
+  'gemini-lite',
+  'gemini-flash',
+  'groq-fast',
+  'qwen-groq',
+  'groq-quality',
+  'qwen',
+  'llama',
+  'gemma',
+];
 
 // --- Rate limit --------------------------------------------------------------
 
@@ -173,6 +194,9 @@ async function invokeModel(
         system: SYSTEM_PROMPT,
         messages: modelMessages,
       });
+      // Safe observability: provider + model id only. No keys, no user
+      // messages, no request bodies, no response content.
+      console.log('AI_PROVIDER_USED', entry.provider, 'MODEL_USED', modelId);
       return { text };
     } catch (err) {
       const { isQuota, isRetryable } = classifyError(err);

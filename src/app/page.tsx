@@ -33,6 +33,8 @@ import {
   MicOff,
   X,
   FileText,
+  Volume2,
+  Square,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -55,9 +57,31 @@ const MODEL_OPTIONS: ModelOption[] = [
   { id: 'gemma',         label: 'Gemma',         badge: 'OpenRouter'    },
   { id: 'groq-fast',     label: 'Groq Fast',     badge: 'Fast Groq'     },
   { id: 'groq-quality',  label: 'Groq Quality',  badge: 'Better Groq'   },
+  { id: 'qwen-groq',     label: 'Qwen - Groq',   badge: 'Fast free Qwen' },
 ];
 
 const BASE_ENDPOINT = '/api/chat';
+
+// Strip markdown so read-aloud sounds natural (no **, #, `, tables, links).
+function stripMarkdown(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, ' ')          // code fences
+    .replace(/`([^`]+)`/g, '$1')              // inline code
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')    // images
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')  // links → text
+    .replace(/^#{1,6}\s+/gm, '')              // headings
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')       // bold
+    .replace(/(\*|_)(.*?)\1/g, '$2')          // italic
+    .replace(/~~(.*?)~~/g, '$1')              // strikethrough
+    .replace(/^\s*>+\s?/gm, '')               // blockquotes
+    .replace(/^\s*[-*+]\s+/gm, '')            // bullet lists
+    .replace(/^\s*\d+\.\s+/gm, '')            // numbered lists
+    .replace(/^[\s|:-]*\|[\s|:-]*$/gm, ' ')   // table separator rows
+    .replace(/\|/g, ' ')                      // table pipes
+    .replace(/\n{2,}/g, '. ')                 // paragraph breaks → pause
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 type Suggestion = {
   label: string;
@@ -136,6 +160,16 @@ export default function Page() {
   const { messages, sendMessage, status, setMessages, error } = useChat({ transport });
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Scroll anchoring — bring the TOP of each new assistant answer into view,
+  // once per answer. We do NOT auto-scroll to the bottom.
+  const assistantRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const pendingAnchorRef = useRef(false);
+
+  // Read-aloud (browser text-to-speech) for assistant answers.
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [speechError, setSpeechError] = useState<string | null>(null);
 
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -331,12 +365,86 @@ export default function Page() {
     });
   }, [messages, hydrated, activeId]);
 
+  // ChatGPT-style anchoring: when a freshly-sent answer arrives, bring the
+  // start of that assistant message to the top — once. No bottom-snapping,
+  // no fighting the user's manual scroll, and no anchoring on history load
+  // (pendingAnchorRef is only set when the user actually sends a message).
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
-    });
+    if (!pendingAnchorRef.current) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== 'assistant') return;
+    // Wait until the answer actually has text — only then is there enough
+    // content below it to bring its first line to the top of the viewport.
+    const hasText = last.parts?.some(
+      (p) => p.type === 'text' && p.text.trim().length > 0,
+    );
+    if (!hasText) return;
+    const el = assistantRefs.current.get(last.id);
+    if (el) {
+      pendingAnchorRef.current = false;
+      // Defer one frame so layout is flushed before we scroll.
+      requestAnimationFrame(() =>
+        el.scrollIntoView({ block: 'start', behavior: 'smooth' }),
+      );
+    }
   }, [messages]);
+
+  // Detect speech-synthesis support after mount (avoids SSR window access).
+  useEffect(() => {
+    setSpeechSupported(typeof window !== 'undefined' && 'speechSynthesis' in window);
+  }, []);
+
+  // Auto-dismiss the speech error toast.
+  useEffect(() => {
+    if (!speechError) return;
+    const t = setTimeout(() => setSpeechError(null), 4000);
+    return () => clearTimeout(t);
+  }, [speechError]);
+
+  const stopSpeaking = useCallback(() => {
+    try { window.speechSynthesis?.cancel(); } catch {}
+    setSpeakingId(null);
+  }, []);
+
+  // Stop any read-aloud when the model changes, and on unmount.
+  useEffect(() => {
+    stopSpeaking();
+    return () => { try { window.speechSynthesis?.cancel(); } catch {} };
+  }, [selectedModel, stopSpeaking]);
+
+  const toggleSpeak = useCallback(
+    (id: string, raw: string) => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        setSpeechSupported(false);
+        setSpeechError('Speech playback is not supported in this browser.');
+        return;
+      }
+      // Clicking the active button stops it.
+      if (speakingId === id) {
+        stopSpeaking();
+        return;
+      }
+      // Starting a new answer cancels any in-progress speech.
+      window.speechSynthesis.cancel();
+      const text = stripMarkdown(raw);
+      if (!text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = 1;
+      utter.pitch = 1;
+      utter.volume = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const enVoice =
+        voices.find((v) => /^en[-_]/i.test(v.lang)) ||
+        voices.find((v) => /en/i.test(v.lang));
+      if (enVoice) utter.voice = enVoice;
+      utter.lang = enVoice?.lang || 'en-US';
+      utter.onend = () => setSpeakingId(null);
+      utter.onerror = () => setSpeakingId(null);
+      setSpeakingId(id);
+      window.speechSynthesis.speak(utter);
+    },
+    [speakingId, stopSpeaking],
+  );
 
   const closeOnMobile = useCallback(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
@@ -345,22 +453,24 @@ export default function Page() {
   }, []);
 
   const handleNewChat = useCallback(() => {
+    stopSpeaking();
     setActiveId(null);
     setMessages([]);
     setInput('');
     closeOnMobile();
-  }, [setMessages, closeOnMobile]);
+  }, [setMessages, closeOnMobile, stopSpeaking]);
 
   const handleSelectSession = useCallback(
     (id: string) => {
       if (isBusy) return;
       const session = sessions.find((s) => s.id === id);
       if (!session) return;
+      stopSpeaking();
       setActiveId(id);
       setMessages(session.messages);
       closeOnMobile();
     },
-    [sessions, setMessages, isBusy, closeOnMobile],
+    [sessions, setMessages, isBusy, closeOnMobile, stopSpeaking],
   );
 
   const handleDeleteSession = useCallback(
@@ -389,6 +499,7 @@ export default function Page() {
       attachedFiles.forEach((f) => dt.items.add(f));
       fileList = dt.files;
     }
+    pendingAnchorRef.current = true;
     sendMessage({ text, files: fileList });
     setInput('');
     filePreviews.forEach((u) => { if (u) URL.revokeObjectURL(u); });
@@ -603,7 +714,7 @@ export default function Page() {
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s.label}
-                    onClick={() => sendMessage({ text: s.label })}
+                    onClick={() => { pendingAnchorRef.current = true; sendMessage({ text: s.label }); }}
                     className="group flex items-center gap-3.5 rounded-2xl border border-[#ececea] bg-white px-4 py-3.5 text-left shadow-[0_1px_4px_rgba(0,0,0,0.03)] transition-all duration-150 hover:border-[#d8d8d4] hover:shadow-[0_4px_14px_rgba(0,0,0,0.07)]"
                   >
                     <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${s.tile}`}>
@@ -631,7 +742,11 @@ export default function Page() {
                 return (
                   <div
                     key={message.id}
-                    className={`mb-6 flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+                    ref={(el) => {
+                      if (el && message.role === 'assistant') assistantRefs.current.set(message.id, el);
+                      else if (!el) assistantRefs.current.delete(message.id);
+                    }}
+                    className={`mb-6 flex scroll-mt-3 gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
                   >
                     {isUser ? (
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2a2f6b] text-white">
@@ -650,7 +765,26 @@ export default function Page() {
                     ) : (
                       <div className="min-w-0 max-w-[88%] pt-0.5 sm:max-w-[85%]">
                         {text ? (
-                          <AssistantMarkdown>{text}</AssistantMarkdown>
+                          <>
+                            <AssistantMarkdown>{text}</AssistantMarkdown>
+                            {/* Read-aloud — never autoplays; starts on tap. */}
+                            <div className="mt-1 flex items-center">
+                              <button
+                                type="button"
+                                onClick={() => toggleSpeak(message.id, text)}
+                                disabled={!speechSupported}
+                                aria-label={speakingId === message.id ? 'Stop reading' : 'Read response aloud'}
+                                title={speakingId === message.id ? 'Stop reading' : 'Read response aloud'}
+                                className="flex h-7 w-7 items-center justify-center rounded-lg text-[#a4a5ae] transition-colors hover:bg-[#f3f3f1] hover:text-[#6b6f7d] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                {speakingId === message.id ? (
+                                  <Square className="h-3.5 w-3.5 fill-current" />
+                                ) : (
+                                  <Volume2 className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </>
                         ) : (
                           <span className="inline-flex items-center gap-2 pt-1 text-[13.5px] text-[#8a8d99]">
                             <span className="inline-flex gap-1">
@@ -721,18 +855,18 @@ export default function Page() {
             onChange={handleFileSelect}
           />
 
-          {/* Voice status / error toast */}
-          {(voiceError || isListening) && (
+          {/* Voice / speech status & error toast */}
+          {(voiceError || speechError || isListening) && (
             <div className="pointer-events-none mx-auto mb-2 flex w-full max-w-2xl justify-center">
               <div
                 className={`pointer-events-auto flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[12px] font-medium shadow-sm ${
-                  voiceError
+                  voiceError || speechError
                     ? 'border-[#f2d4d1] bg-[#fdf3f2] text-[#9b2c22]'
                     : 'border-[#f5d0d0] bg-[#fdf0f0] text-red-500'
                 }`}
               >
-                {voiceError ? (
-                  <span>{voiceError}</span>
+                {voiceError || speechError ? (
+                  <span>{voiceError || speechError}</span>
                 ) : (
                   <>
                     <span className="relative flex h-2 w-2">
