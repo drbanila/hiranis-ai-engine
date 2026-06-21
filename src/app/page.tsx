@@ -428,7 +428,7 @@ export default function Page() {
             <HiraniLogo size={36} pulse={isBusy} />
             <div className="leading-tight">
               <div className="text-[15px] font-semibold tracking-tight text-[#1a1f2e]">
-                Hirani AI Engine
+                Banila AI Engine
               </div>
               <div className="text-[11px] text-[#9a9ba5]">Private Intelligence</div>
             </div>
@@ -530,7 +530,7 @@ export default function Page() {
           </button>
 
           <span className="whitespace-nowrap text-[15px] font-semibold tracking-tight text-[#1a1f2e]">
-            Hirani AI Engine
+            Banila AI Engine
           </span>
 
           {/* Status badge */}
@@ -635,7 +635,7 @@ export default function Page() {
                   >
                     {isUser ? (
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2a2f6b] text-white">
-                        <span className="text-[10px] font-semibold">H</span>
+                        <span className="text-[10px] font-semibold">B</span>
                       </div>
                     ) : (
                       <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center">
@@ -659,7 +659,7 @@ export default function Page() {
                               <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#6d5ce0] opacity-60" />
                             </span>
                             <span>
-                              Hirani AI Engine is thinking
+                              Banila AI Engine is thinking
                               <span className="text-[#b6b7bf]"> · {elapsed}s</span>
                             </span>
                           </span>
@@ -686,7 +686,7 @@ export default function Page() {
                           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-[#6d5ce0] opacity-60" />
                         </span>
                         <span>
-                          Hirani AI Engine is thinking
+                          Banila AI Engine is thinking
                           <span className="text-[#b6b7bf]"> · {elapsed}s</span>
                         </span>
                       </span>
@@ -701,7 +701,7 @@ export default function Page() {
                     <HiraniLogo size={28} />
                   </div>
                   <div className="max-w-[85%] rounded-2xl rounded-tl-sm border border-[#f2d4d1] bg-[#fdf3f2] px-4 py-2.5 text-[14px] leading-relaxed text-[#9b2c22] sm:max-w-[80%]">
-                    Something went wrong while reaching Hirani AI Engine. Please try again.
+                    Something went wrong while reaching Banila AI Engine. Please try again.
                   </div>
                 </div>
               )}
@@ -797,7 +797,7 @@ export default function Page() {
                   if (e.key === 'Enter' && !e.shiftKey)
                     handleSubmit(e as unknown as React.FormEvent);
                 }}
-                placeholder="Ask Hirani AI Engine anything..."
+                placeholder="Ask Banila AI Engine anything..."
                 className="flex-1 bg-transparent px-1 py-1.5 text-[14px] text-[#1a1f2e] placeholder:text-[#b6b7bf] focus:outline-none"
               />
               <button
@@ -835,7 +835,7 @@ export default function Page() {
             </div>
           </form>
           <p className="pointer-events-none mt-2 text-center text-[11px] text-[#b6b7bf]">
-            Hirani AI Engine can make mistakes. Verify important information.
+            Banila AI Engine can make mistakes. Verify important information.
           </p>
         </div>
       </main>

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Hirani AI Engine · Cloud Intelligence",
+  title: "Banila AI Engine · Cloud Intelligence",
   description: "A state-of-the-art cloud intelligence for exploring ideas.",
 };
 

@@ -15,12 +15,12 @@ const QUOTA_MESSAGE =
 const RATE_LIMIT_MESSAGE =
   'You are sending messages too quickly. Please wait a few seconds and try again.';
 const GENERIC_ERROR_MESSAGE =
-  "Something went wrong while reaching Hirani's AI Engine. Please try again.";
+  'Something went wrong while reaching Banila AI Engine. Please try again.';
 const MODEL_MISSING_MESSAGE =
   'This model requires an API key that is not configured.';
 
 const SYSTEM_PROMPT =
-  "You are Hirani's AI Engine, a thoughtful and concise cloud intelligence. " +
+  'You are Banila AI Engine, a thoughtful and concise cloud intelligence. ' +
   'Help the user explore ideas clearly and helpfully.';
 
 // --- Providers ---------------------------------------------------------------

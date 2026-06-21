@@ -8,7 +8,7 @@ export default function WelcomeSection() {
       </div>
 
       <h1 className="text-[2rem] font-bold leading-[1.05] tracking-tight text-[#1a1f2e] sm:text-[2.75rem] md:text-[3.25rem]">
-        Hirani AI Engine
+        Banila AI Engine
       </h1>
 
       <p className="mt-4 max-w-[26rem] text-[0.95rem] leading-relaxed text-[#6b6f7d]">

@@ -1,6 +1,6 @@
 /**
- * Hirani AI Engine — premium "H" monogram mark.
- * Geometric navy→violet gradient "H" with a small spark accent.
+ * Banila AI Engine — premium "B" monogram mark.
+ * Navy→violet gradient "B" letterform with a small spark accent.
  * No external assets, no heavy animation. Pass `pulse` for a very
  * subtle breathing effect while the assistant is generating.
  */
@@ -34,13 +34,20 @@ export default function HiraniLogo({
         </linearGradient>
       </defs>
 
-      {/* "H" — solid geometric mark */}
-      {/* Left stem */}
-      <rect x="10" y="9" width="5.5" height="30" rx="2.5" fill={`url(#${gid})`} />
-      {/* Right stem */}
-      <rect x="28" y="9" width="5.5" height="30" rx="2.5" fill={`url(#${gid})`} opacity="0.92" />
-      {/* Crossbar */}
-      <rect x="13.5" y="21.25" width="16.5" height="5" rx="2.5" fill={`url(#${gid})`} />
+      {/* "B" — gradient letterform mark */}
+      <text
+        x="23"
+        y="25"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+        fontSize="34"
+        fontWeight="800"
+        letterSpacing="-1"
+        fill={`url(#${gid})`}
+      >
+        B
+      </text>
 
       {/* Spark accent — top right */}
       <path
