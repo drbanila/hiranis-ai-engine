@@ -177,6 +177,7 @@ type ModelMessages = Awaited<ReturnType<typeof convertToModelMessages>>;
 async function invokeModel(
   modelId: string,
   modelMessages: ModelMessages,
+  systemPrompt: string,
 ): Promise<{ text: string } | { error: 'quota' | 'missing' | 'generic' }> {
   const entry = MODEL_REGISTRY[modelId];
   if (!entry) return { error: 'generic' };
@@ -191,7 +192,7 @@ async function invokeModel(
     try {
       const { text } = await generateText({
         model,
-        system: SYSTEM_PROMPT,
+        system: systemPrompt,
         messages: modelMessages,
       });
       // Safe observability: provider + model id only. No keys, no user
@@ -222,7 +223,18 @@ export async function POST(req: Request) {
   const url = new URL(req.url);
   const requestedModel = url.searchParams.get('model') ?? 'auto';
 
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const {
+    messages,
+    projectContext,
+  }: { messages: UIMessage[]; projectContext?: string } = await req.json();
+
+  // Project context (notes + text-file contents) is injected into the system
+  // prompt so every chat in a project shares the same grounding. Capped client-
+  // side; capped again here defensively. Never logged.
+  const systemPrompt =
+    typeof projectContext === 'string' && projectContext.trim()
+      ? `${SYSTEM_PROMPT}\n\n${projectContext.slice(0, 24_000)}`
+      : SYSTEM_PROMPT;
 
   // Rate limit: block rapid repeated calls from the same client.
   const clientId = getClientId(req);
@@ -240,7 +252,7 @@ export async function POST(req: Request) {
   // Auto mode: try each model in priority order until one succeeds.
   if (requestedModel === 'auto') {
     for (const modelId of AUTO_PRIORITY) {
-      const result = await invokeModel(modelId, modelMessages);
+      const result = await invokeModel(modelId, modelMessages, systemPrompt);
       if ('text' in result) return textResponse(result.text);
       if (result.error === 'missing') continue; // key not configured, skip
     }
@@ -252,7 +264,7 @@ export async function POST(req: Request) {
     return textResponse(GENERIC_ERROR_MESSAGE);
   }
 
-  const result = await invokeModel(requestedModel, modelMessages);
+  const result = await invokeModel(requestedModel, modelMessages, systemPrompt);
   if ('text' in result) return textResponse(result.text);
   if (result.error === 'quota') return textResponse(QUOTA_MESSAGE);
   if (result.error === 'missing') return textResponse(MODEL_MISSING_MESSAGE);

@@ -10,6 +10,10 @@ export type ChatSession = {
   title: string;
   updatedAt: number;
   messages: UIMessage[];
+  /** Project this chat belongs to (folder grouping). null/undefined = main list. */
+  projectId?: string | null;
+  /** Pinned chats float to the top of the main Chats list. */
+  pinned?: boolean;
 };
 
 const STORAGE_KEY = 'hae.sessions.v1';
