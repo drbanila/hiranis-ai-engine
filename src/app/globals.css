@@ -2,16 +2,30 @@
 @plugin "@tailwindcss/typography";
 
 :root {
-  /* Warm ivory canvas — calm, premium, off-white */
-  --background: #fafaf8;
-  --foreground: #1a1a1a;
-  --muted-foreground: #6b6b6b;
-  /* Sidebar / surface — slightly warmer than background */
-  --surface: #f2f0eb;
-  --border: #e3e0d9;
-  /* Accent — deep navy */
-  --accent: #1c3557;
-  --accent-light: #eef0f7;
+  /* Balanced premium palette — warm neutrals + rose accent (not pink-dominant) */
+  --background: #faf9f8;
+  --foreground: #2a2226;
+  --muted-foreground: #737373;
+  --surface: #f5f4f2;
+  --surface-elevated: #ffffff;
+  --border: #e8e4e2;
+  --border-soft: #f0eeec;
+
+  --accent: #9d4a6a;
+  --accent-hover: #853d59;
+  --accent-mid: #b76e8a;
+  --accent-light: #faf0f4;
+  --accent-glow: rgba(157, 74, 106, 0.15);
+
+  --champagne: #d4a574;
+  --champagne-light: #faf0e8;
+  --sage: #7a9a88;
+  --sage-light: #eef6f1;
+
+  --user-bubble: #fce4ef;
+  --user-border: #f0b8cc;
+  --shadow-soft: 0 2px 16px rgba(199, 75, 122, 0.08);
+  --shadow-lift: 0 8px 32px rgba(199, 75, 122, 0.12);
 }
 
 @theme inline {
@@ -22,32 +36,157 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-light: var(--accent-light);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-cormorant);
   --font-mono: var(--font-geist-mono);
+}
+
+html {
+  height: 100%;
+  height: 100dvh;
+  height: -webkit-fill-available;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Inter, system-ui, -apple-system,
-    'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+  height: 100%;
+  height: 100dvh;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  overflow: hidden;
 }
 
-/* Welcome section entrance */
+/* Full-height app shell — Safari macOS + iOS + Chrome */
+.hae-app-shell {
+  display: flex;
+  height: 100%;
+  height: 100dvh;
+  height: -webkit-fill-available;
+  min-height: 0;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+/* Scroll region inside flex layouts — min-height:0 is required for Safari */
+.hae-scroll {
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 0; /* Safari macOS: flex child needs explicit basis to scroll */
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+.hae-main-column {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* iPhone notch / home indicator */
+.hae-safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0px));
+}
+
+.hae-safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.hae-safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+/* Apple HIG minimum touch target */
+.hae-touch {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Prevent iOS Safari zoom on input focus (needs ≥16px) */
+.hae-input {
+  font-size: 16px;
+}
+
+@media (min-width: 640px) {
+  .hae-input {
+    font-size: 14px;
+  }
+}
+
+button,
+[role='button'],
+a {
+  touch-action: manipulation;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #f0b0c8;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e090b0;
+}
+
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Subtle logo breathing while assistant generates */
 .hae-pulse {
   animation: hae-pulse 2.4s ease-in-out infinite;
 }
 @keyframes hae-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.65; }
+  0%,
+  100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  50% {
+    opacity: 0.82;
+    filter: drop-shadow(0 0 10px var(--accent-glow));
+  }
+}
+
+.hae-glass {
+  background: rgba(255, 251, 252, 0.92);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .hae-glass {
+    background: rgba(255, 251, 252, 0.98);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hae-pulse { animation: none; }
+  .hae-pulse {
+    animation: none;
+  }
 }

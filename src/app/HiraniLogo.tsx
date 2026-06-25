@@ -1,8 +1,7 @@
 /**
- * Banila AI Engine — premium "B" monogram mark.
- * Navy→violet gradient "B" letterform with a small spark accent.
- * No external assets, no heavy animation. Pass `pulse` for a very
- * subtle breathing effect while the assistant is generating.
+ * Banila AI Engine — premium rose-gold monogram.
+ * Refined "B" with champagne spark accent. Pass `pulse` for subtle
+ * breathing while the assistant generates.
  */
 export default function HiraniLogo({
   size = 32,
@@ -13,7 +12,6 @@ export default function HiraniLogo({
   pulse?: boolean;
   className?: string;
 }) {
-  // Unique gradient id so multiple instances on one page don't collide.
   const gid = `hae-grad-${size}`;
 
   return (
@@ -27,32 +25,30 @@ export default function HiraniLogo({
       aria-hidden="true"
     >
       <defs>
-        <linearGradient id={gid} x1="8" y1="40" x2="40" y2="8" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#1C3557" />
-          <stop offset="0.55" stopColor="#3B3F9E" />
-          <stop offset="1" stopColor="#7C5CE0" />
+        <linearGradient id={gid} x1="8" y1="42" x2="42" y2="6" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#7a3d58" />
+          <stop offset="0.45" stopColor="#b76e8a" />
+          <stop offset="1" stopColor="#c9a87c" />
         </linearGradient>
       </defs>
 
-      {/* "B" — gradient letterform mark */}
       <text
         x="23"
         y="25"
         textAnchor="middle"
         dominantBaseline="central"
-        fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+        fontFamily="var(--font-cormorant), Georgia, 'Times New Roman', serif"
         fontSize="34"
-        fontWeight="800"
-        letterSpacing="-1"
+        fontWeight="700"
+        letterSpacing="-0.5"
         fill={`url(#${gid})`}
       >
         B
       </text>
 
-      {/* Spark accent — top right */}
       <path
         d="M38 8 L39 11 L42 12 L39 13 L38 16 L37 13 L34 12 L37 11 Z"
-        fill="#7C5CE0"
+        fill="#c9a87c"
       />
     </svg>
   );
