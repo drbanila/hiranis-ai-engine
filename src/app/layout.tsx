@@ -26,6 +26,7 @@ export const metadata: Metadata = {
   title: "Banu's AI Engine · Private Clinical Intelligence",
   description:
     "Premium private intelligence for gynaecology, patient care, and women's health.",
+  applicationName: "Banu's AI Engine",
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
